@@ -20,22 +20,42 @@ TRAIN_DATA_PATH = '/home/kcrong/project/speech_nlp/train'
 
 
 def randomkey(length):
+    """
+    :param length: 길이
+    :return: 해당 길이 만큼의 랜덤 문자열
+    :example: randomkey(4) = "dkfd"
+    """
     return ''.join(random.choice(string.ascii_lowercase) for i in range(length))
 
 
 class MakeSentence:
-    def search(self, dirname):
+    def search(self, dirname, file_list=list()):
+        """
+        :param file_list: 저장된 모든 파일 리스트
+        :param dirname: 경로
+        :return: 해당 경로 속 모든 파일 리스트
+        """
+
         try:
             filenames = os.listdir(dirname)
             for filename in filenames:
                 full_filename = os.path.join(dirname, filename)
                 if os.path.isdir(full_filename):
                     # 재귀 형식을 이용해 해당 경로의 하위경로 파일까지 긁어옴
-                    self.search(full_filename)
+                    self.search(full_filename, file_list)
                 else:
-                    self.all_files.append(full_filename)
+                    file_list.append(full_filename)
         except PermissionError:
             pass
+
+        return file_list
+
+    def make_sentences(self):
+        sentences = list()
+        for train_file in self.all_files:
+            with open(os.path.join(self.datapath, train_file), 'r') as fp:
+                sentences += [mecab.nouns(line) for line in fp.readlines() if line != '\n']
+        return sentences
 
     def __init__(self, datapath):
         """
@@ -43,13 +63,8 @@ class MakeSentence:
         :return: 해당 경로에 있는 모든 파일의 학습 데이터
         """
         self.datapath = datapath
-        self.all_files = []
-        self.sentences = []
-        self.search(datapath)
-
-        for train_file in self.all_files:
-            with open(os.path.join(datapath, train_file), 'r') as fp:
-                self.sentences += [mecab.nouns(line) for line in fp.readlines() if line != '\n']
+        self.all_files = self.search(datapath)
+        self.sentences = self.make_sentences()
 
     def __len__(self):
         return len(self.sentences)
@@ -129,7 +144,6 @@ class TrainModel:
 
 
 if __name__ == '__main__':
-
     park_sentences = MakeSentence(TRAIN_DATA_PATH + '/park')
 
     vector_model = TrainModel(park_sentences)
