@@ -12,6 +12,8 @@ import string
 from gensim.models import Word2Vec
 from konlpy.tag import Mecab
 
+from create_json_cosine import make_model2json
+
 mecab = Mecab()
 
 TRAIN_DATA_PATH = '/home/kcrong/project/speech_nlp/train'
@@ -76,15 +78,25 @@ class TrainModel:
         self.sentences = train_data
         self.model = Word2Vec(min_count=1)
 
-        # How Can We Do?
+        # What Can We Do?
+        # 단어를 처음 Build 해놓고 학습시킬 경우, 그 단어들의 Vector 만 재계산.
+        # --> 새로운 단어를 추가하지 않음.
         self.model.build_vocab(self.sentences)
-
         self.model.train(self.sentences)
-
         self.sorted_vocab = sorted(list(self.model.vocab.items()), key=lambda x: x[1].count, reverse=True)
 
     def most_similar(self, *args, **kwargs):
         return self.model.most_similar(*args, **kwargs)
+
+    def save(self):
+        filename = randomkey(24)
+        filepath = os.path.dirname(os.path.realpath(__file__))
+
+        path = filepath + filename
+
+        self.model.save(path)
+
+        return path
 
     def __len__(self):
         return len(self.sorted_vocab)
@@ -117,10 +129,14 @@ class TrainModel:
 
 
 if __name__ == '__main__':
-    # TRAIN_DATA_PATH is '/home/kcrong/project/speech_nlp/train'
+
     park_sentences = MakeSentence(TRAIN_DATA_PATH + '/park')
 
     vector_model = TrainModel(park_sentences)
+
+    model_path = vector_model.save()
+
+    make_model2json(model_path)
 
     """
     # 아래와 같이 model 끼리 덧셈도 가능하다.
@@ -132,4 +148,3 @@ if __name__ == '__main__':
     for vocab in vector_model:
         print("%s : %d times" % (vocab[0], vocab[1].count))
     """
-    print("%s is most similar with %s" % ('국민', vector_model.most_similar('국민')[0][0]))
