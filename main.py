@@ -91,19 +91,40 @@ class TrainModel:
         else:
             self.name = name
         self.sentences = train_data
-        self.model = Word2Vec(min_count=1)
+        self.model = Word2Vec(min_count=30)
 
-        # What Can We Do?
-        # 단어를 처음 Build 해놓고 학습시킬 경우, 그 단어들의 Vector 만 재계산.
-        # --> 새로운 단어를 추가하지 않음.
+        """
+        min_count 값이 30일 때 데이터의 신뢰도가 가장 높음.
+
+        >>> vector_model.most_similar('북한')
+        [('도발', 0.4360549747943878), ('기업', 0.35535264015197754), ('지원', 0.354912132024765), ('예산', 0.34357917308807373), ('한반도', 0.3317646384239197), ('일자리', 0.32848164439201355), ('원', 0.31689271330833435), ('국가', 0.29656141996383667), ('수', 0.2834866940975189), ('혁신', 0.2476218342781067)]
+        >>> vector_model.most_similar('국민')
+        [('일자리', 0.5106521844863892), ('원', 0.4429761469364166), ('경제', 0.43097302317619324), ('우리', 0.4009348452091217), ('도발', 0.39694949984550476), ('수', 0.39668890833854675), ('저', 0.36134907603263855), ('년', 0.3575587868690491), ('지원', 0.3500736653804779), ('노력', 0.3165301978588104)]
+        >>> vector_model.most_similar('경제')
+        [('노력', 0.47768568992614746), ('일자리', 0.46875935792922974), ('것', 0.4512409269809723), ('국민', 0.43097299337387085), ('원', 0.3865829408168793), ('청년', 0.3863828778266907), ('정부', 0.38234245777130127), ('지원', 0.31993913650512695), ('저', 0.2971411347389221), ('산업', 0.29361671209335327)]
+
+        """
+
+        """
+        What Can We Do?
+        단어를 처음 Build 해놓고 학습시킬 경우, 그 단어들의 Vector 만 재계산.
+        --> 새로운 단어를 추가하지 않음.
+        """
         self.model.build_vocab(self.sentences)
         self.model.train(self.sentences)
         self.sorted_vocab = sorted(list(self.model.vocab.items()), key=lambda x: x[1].count, reverse=True)
 
     def most_similar(self, *args, **kwargs):
+        """
+        :param args, kwargs:
+        :return:
+        """
         return self.model.most_similar(*args, **kwargs)
 
     def save(self):
+        """
+        :return: moodel 이 저장된 경로
+        """
         filename = randomkey(24)
         filepath = os.path.dirname(os.path.realpath(__file__))
 
@@ -117,6 +138,10 @@ class TrainModel:
         return len(self.sorted_vocab)
 
     def __getitem__(self, index):
+        """
+        :param index: list index
+        :return: 해당 index 의 sorted_vocab data return.
+        """
         return self.sorted_vocab[index]
 
     def __repr__(self):
