@@ -9,6 +9,23 @@ import os
 import random
 import string
 
+from mpl_toolkits.mplot3d import Axes3D
+import matplotlib.pyplot as plt
+import matplotlib
+
+from numpy import cov, mat, mean, array
+from numpy import linalg as lin
+
+"""
+mat : 기본 행렬
+cov : 공분산 행렬
+linalg : linear algebra 선형대수 모듈
+mean : Average
+
+"""
+
+matplotlib.rc('font', family='NanumGothic')
+
 from gensim.models import Word2Vec
 from konlpy.tag import Mecab
 
@@ -17,7 +34,7 @@ from create_json_cosine import make_model2json
 mecab = Mecab()
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
-TRAIN_DATA_PATH = os.path.join(BASE_DIR,'train')
+TRAIN_DATA_PATH = os.path.join(BASE_DIR, 'train')
 
 
 def randomkey(length):
@@ -58,6 +75,15 @@ class MakeSentence:
                 sentences += [mecab.nouns(line) for line in fp.readlines() if line != '\n']
         return sentences
 
+    def make_vocab(self):
+        all_vocab = list()
+
+        for train_file in self.all_files:
+            with open(os.path.join(self.datapath, train_file), 'r') as fp:
+                all_vocab.append([pos[0] for pos in mecab.pos(fp.read()) if pos[1] in ['NNG', 'NNP']])
+
+        return all_vocab
+
     def __init__(self, datapath):
         """
         :param datapath: 학습할 데이터가 있는 경로
@@ -66,6 +92,7 @@ class MakeSentence:
         self.datapath = datapath
         self.all_files = self.search(datapath)
         self.sentences = self.make_sentences()
+        self.vocab = self.make_vocab()
 
     def __len__(self):
         return len(self.sentences)
@@ -84,35 +111,30 @@ class MakeSentence:
 class TrainModel:
     def __init__(self, train_data, name=None):
         """
-        :param train_data: TrainData object
+        :param train_data: TrainData object or saved model path
         :return: Trained Vector Model
         """
-        if name is None:
-            self.name = train_data.datapath
+
+        self.model = Word2Vec(min_count=20)
+
+        try:
+            if name is None:
+                self.name = train_data.datapath
+            else:
+                self.name = name
+
+        except AttributeError:
+            # train_data 가 path 로 왔을 경우.
+            self.model.load(train_data)
+
         else:
-            self.name = name
-        self.sentences = train_data
-        self.model = Word2Vec(min_count=30)
+            self.sentences = train_data
 
-        """
-        min_count 값이 30일 때 데이터의 신뢰도가 가장 높음.
+            self.model.build_vocab(self.sentences.vocab)
+            self.model.train(self.sentences)
+            self.model.train(self.sentences)
+            self.model.train(self.sentences)
 
-        >>> vector_model.most_similar('북한')
-        [('도발', 0.4360549747943878), ('기업', 0.35535264015197754), ('지원', 0.354912132024765), ('예산', 0.34357917308807373), ('한반도', 0.3317646384239197), ('일자리', 0.32848164439201355), ('원', 0.31689271330833435), ('국가', 0.29656141996383667), ('수', 0.2834866940975189), ('혁신', 0.2476218342781067)]
-        >>> vector_model.most_similar('국민')
-        [('일자리', 0.5106521844863892), ('원', 0.4429761469364166), ('경제', 0.43097302317619324), ('우리', 0.4009348452091217), ('도발', 0.39694949984550476), ('수', 0.39668890833854675), ('저', 0.36134907603263855), ('년', 0.3575587868690491), ('지원', 0.3500736653804779), ('노력', 0.3165301978588104)]
-        >>> vector_model.most_similar('경제')
-        [('노력', 0.47768568992614746), ('일자리', 0.46875935792922974), ('것', 0.4512409269809723), ('국민', 0.43097299337387085), ('원', 0.3865829408168793), ('청년', 0.3863828778266907), ('정부', 0.38234245777130127), ('지원', 0.31993913650512695), ('저', 0.2971411347389221), ('산업', 0.29361671209335327)]
-
-        """
-
-        """
-        What Can We Do?
-        단어를 처음 Build 해놓고 학습시킬 경우, 그 단어들의 Vector 만 재계산.
-        --> 새로운 단어를 추가하지 않음.
-        """
-        self.model.build_vocab(self.sentences)
-        self.model.train(self.sentences)
         self.sorted_vocab = sorted(list(self.model.vocab.items()), key=lambda x: x[1].count, reverse=True)
 
     def most_similar(self, *args, **kwargs):
@@ -129,7 +151,7 @@ class TrainModel:
         filename = randomkey(24)
         filepath = os.path.dirname(os.path.realpath(__file__))
 
-        path = filepath + filename
+        path = os.path.join(filepath, filename)
 
         self.model.save(path)
 
@@ -155,18 +177,89 @@ class TrainModel:
         :return: 두 벡터를 합친 결과 (벡터)
         """
 
-        """
-        # TODO: 이게 왜 동작이 안되는지 모르겠다
-        filename = 'tmp'
-        other.model.save(filename)
-        self.model.load(filename)
-        """
-
         # 우선 다시 학습을 시키는 방식으로 진행
         new_name = self.name + ' + ' + other.name
         new_model = TrainModel(self.sentences + other.sentences, new_name)
 
         return new_model
+
+    def visualization_3d(self):
+
+        def partition(alist, indices):
+            # 해당 indices 의 리스트 를 반환
+            return [mean(alist[i:j]) for i, j in zip([0] + indices, indices + [None])]
+
+        vocab_list = list(self.model.vocab.keys())
+
+        fig = plt.figure(figsize=(18, 13))
+        ax = fig.gca(projection='3d')
+
+        all_x = list()
+        all_y = list()
+        all_z = list()
+
+        for vocab in vocab_list:
+            # Need Dimensionality Reduction
+            """
+            # 100 차원 벡터를 행렬로 형변환
+            # vocab_matrix = mat(self.model[vocab])
+
+            # 고유값과 고유벡터 연산을 위한 공분산 행렬 구함
+            cov_matrix = cov(self.model[vocab])
+
+            from sklearn.manifold import TSNE
+
+            tsne = TSNE(perplexity=30, n_components=2, init='pca', n_iter=5000)
+
+            low_dim_embs = tsne.fit_transform()
+            # labels = [word_dict[i] for i in range(len(self.model))]
+            labels = list(self.model.vocab.keys())
+            plot_with_labels(low_dim_embs, labels)
+            """
+
+            vector = self.model[vocab]
+            ave_index = len(vector) // 3
+            """
+            x = mean(vector[:ave_index])
+            y = mean(vector[ave_index:ave_index * 2])
+            z = mean(vector[ave_index * 2:])
+            """
+            x, y, z = partition(vector, [ave_index, ave_index*2])
+
+            all_x.append(x)
+            all_y.append(y)
+            all_z.append(z)
+            ax.text(x, y, z, vocab)
+
+        ax.set_xlim3d(min(all_x), max(all_x))
+        ax.set_ylim3d(min(all_y), max(all_y))
+        ax.set_zlim3d(min(all_z), max(all_z))
+
+        plt.show()
+
+    def visualization_2d(self):
+        # TODO: Here is Error
+        vocab_list = list(self.model.vocab.keys())
+
+        fig = plt.figure()
+        ax = fig.gca(projection='2d')
+
+        all_x = list()
+        all_y = list()
+
+        for vocab in vocab_list:
+            x, y = self.model[vocab]
+            all_x.append(x)
+            all_y.append(y)
+            ax.text(x, y, vocab)
+
+        ax.set_xlim3d(min(all_x), max(all_x))
+        ax.set_ylim3d(min(all_y), max(all_y))
+
+        plt.show()
+
+    # Just ShortCut
+    visualization = visualization_3d
 
 
 if __name__ == '__main__':
@@ -174,9 +267,13 @@ if __name__ == '__main__':
 
     vector_model = TrainModel(park_sentences)
 
-    model_path = vector_model.save()
+    vector_model.visualization()
 
-    make_model2json(model_path)
+    print(1)
+
+    #    model_path = vector_model.save()
+
+    #    make_model2json(model_path)
 
     """
     # 아래와 같이 model 끼리 덧셈도 가능하다.
