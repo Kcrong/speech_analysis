@@ -16,7 +16,8 @@ from create_json_cosine import make_model2json
 
 mecab = Mecab()
 
-TRAIN_DATA_PATH = '/home/kcrong/project/speech_nlp/train'
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+TRAIN_DATA_PATH = os.path.join(BASE_DIR,'train')
 
 
 def randomkey(length):
