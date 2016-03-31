@@ -16,10 +16,10 @@ def make_model2json(model_path):
     number_words = len(model.vocab)
     # number_words = 10000
     for i in range(0, number_words):
-        stringA = list(model.vocab.items())[i][0]
-        f.write("\n\"" + stringA + "\":[\n")
+        string_tmp = list(model.vocab.items())[i][0]
+        f.write("\n\"" + string_tmp + "\":[\n")
 
-        nearest_words = model.most_similar(positive=[stringA], negative=[], topn=20)
+        nearest_words = model.most_similar(positive=[string_tmp], negative=[], topn=20)
         number_nearest_words = len(nearest_words)
 
         for j in range(0, number_nearest_words):
