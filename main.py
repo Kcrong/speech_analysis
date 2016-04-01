@@ -115,7 +115,7 @@ class TrainModel:
         :return: Trained Vector Model
         """
 
-        self.model = Word2Vec(min_count=20)
+        self.model = Word2Vec(min_count=20, size=3)
 
         try:
             if name is None:
@@ -131,8 +131,6 @@ class TrainModel:
             self.sentences = train_data
 
             self.model.build_vocab(self.sentences.vocab)
-            self.model.train(self.sentences)
-            self.model.train(self.sentences)
             self.model.train(self.sentences)
 
         self.sorted_vocab = sorted(list(self.model.vocab.items()), key=lambda x: x[1].count, reverse=True)
@@ -217,14 +215,17 @@ class TrainModel:
             plot_with_labels(low_dim_embs, labels)
             """
 
-            vector = self.model[vocab]
-            ave_index = len(vector) // 3
+            # vector = self.model[vocab]
+            # ave_index = len(vector) // 3
+
             """
             x = mean(vector[:ave_index])
             y = mean(vector[ave_index:ave_index * 2])
             z = mean(vector[ave_index * 2:])
             """
-            x, y, z = partition(vector, [ave_index, ave_index*2])
+            # x, y, z = partition(vector, [ave_index, ave_index*2])
+
+            x, y, z = self.model[vocab]
 
             all_x.append(x)
             all_y.append(y)
